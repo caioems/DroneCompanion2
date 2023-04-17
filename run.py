@@ -24,8 +24,7 @@ class PipeLine:
     def __init__(self):
         self._root = LogList()
         self._log_list = self._root.log_list
-        self._kml = self.create_kml('flights')
-        self.dc = DayChecker()       
+        self._kml = self.create_kml('flights')      
         
     def create_kml(self, kml_name):
         self._kml = simplekml.Kml(name=kml_name)
@@ -36,8 +35,8 @@ class PipeLine:
     def write_to_db(self):
         rp_repo = RpRepo()
         rp_repo.insert(
-            self.flight_timestamp,
-            self.drone_uid,
+            self.dc.flight_timestamp,
+            self.dc.drone_uid,
             self.dc.report.motors_status,
             self.dc.report.motors_feedback, 
             self.dc.report.imu_status, 
@@ -49,25 +48,26 @@ class PipeLine:
         
         m_repo = MtRepo()
         m_repo.insert(
-            self.flight_timestamp, 
-            self.drone_uid,
+            self.dc.flight_timestamp, 
+            self.dc.drone_uid,
             self.dc.report.motors_pwm_list[0], 
             self.dc.report.motors_pwm_list[1], 
             self.dc.report.motors_pwm_list[2], 
             self.dc.report.motors_pwm_list[3]
             )
-    
+    #TODO: move this method to daychecker.py
     def run(self, flight_log):
-        self.dc.create_csv(flight_log)
-        self.dc.create_df_dict(flight_log)         
-        self.dc.delete_csv(flight_log)
-        self.dc.metadata_test(flight_log)
+        self.dc = DayChecker(flight_log)
+        # self.dc.create_csv(flight_log)
+        # self.dc.create_df_dict(flight_log)         
+        # self.dc.delete_csv(flight_log)
+        # self.dc.metadata_test(flight_log)
 
-        self.flight_timestamp = str(self.dc.df_dict['EV'].index[0].timestamp())
-        #TODO: fix a bug where sometimes the version is imported instead of serial number
-        self.drone_uid = self.dc.df_dict['MSG'].Message[2][9:].replace(" ", "")
-        self.dc.report = HealthTests(self.dc.df_dict['RCOU'], self.dc.df_dict['VIBE'], self.dc.df_dict['POWR'])
-        self.dc.report.run()
+        # self.flight_timestamp = str(self.dc.df_dict['EV'].index[0].timestamp())
+        # #TODO: fix a bug where sometimes the version is imported instead of serial number
+        # self.drone_uid = self.dc.df_dict['MSG'].Message[2][9:].replace(" ", "")
+        # self.dc.report = HealthTests(self.dc.df_dict['RCOU'], self.dc.df_dict['VIBE'], self.dc.df_dict['POWR'])
+        # self.dc.report.run()
         
         #Storing data into db
         self.write_to_db()
@@ -75,11 +75,11 @@ class PipeLine:
         #Creating the kml features
         flight_alt = self.dc.df_dict['TERR']['CHeight'].median()
         if flight_alt < 105:
-            rgb = self.dc.create_linestring(flight_log, flights._kml, 0)
+            rgb = self.dc.create_linestring(flights._kml, 0)
             self.dc.rgb_style(rgb)
             self.dc.create_balloon_report(rgb)
         elif flight_alt > 105:
-            agr = self.dc.create_linestring(flight_log, flights._kml, 1)
+            agr = self.dc.create_linestring(flights._kml, 1)
             self.dc.agr_style(agr)
             self.dc.create_balloon_report(agr)
 

@@ -9,8 +9,7 @@ class DataHandler:
         self.session = None
         
     def __create_db_engine(self):
-        engine = create_engine(self.__connection_string)
-        return engine
+        return create_engine(self.__connection_string)
     
     def __enter__(self):
         session_make = sessionmaker(bind=self.__engine)

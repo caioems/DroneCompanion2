@@ -7,14 +7,21 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from internal.concave_hull import concaveHull
+from tests.healthtests import HealthTests
 from concurrent.futures import ThreadPoolExecutor
 
-#class containing functions for the data extraction/modeling and kml customization 
+#class containing functions for the data extraction/modeling and kml customization
+#TODO: turn it into an object, with the flight log being taken in the __init__ constructor
 class DayChecker:
-    types = ["CAM", "EV", "BAT", "MSG", "POWR", "RCOU", "TERR", "VIBE"]    
-    def create_csv(self, log_path):
-        log = log_path.as_posix()
-        path = log_path.parent
+    types = ["CAM", "EV", "BAT", "MSG", "POWR", "RCOU", "TERR", "VIBE"]
+    
+    def __init__(self, flight_log):
+        self.flight_log = flight_log
+        self.run()
+            
+    def create_csv(self):
+        log = self.flight_log.as_posix()
+        path = self.flight_log.parent
         
         def mycmd(type):
             os.system(f"mavlogdump.py --planner --format csv --types {type} {str(log)} > {str(path)}/{type}.csv")
@@ -22,39 +29,40 @@ class DayChecker:
         with ThreadPoolExecutor() as executor:       
             executor.map(mycmd, DayChecker.types)
     
-    def create_df(self, log_path, csv_name):
-        csv_file = os.path.join(log_path.parent, csv_name + ".csv")        
+    def create_df(self, csv_name):
+        csv_file = os.path.join(self.flight_log.parent, csv_name + ".csv")        
         with open(csv_file, "r") as csv:
             df = pd.read_csv(csv, on_bad_lines='skip', index_col='timestamp')
             df.index = pd.to_datetime(df.index, unit='s', origin='unix')
         return df
     
-    def create_df_dict(self, flight_log):
+    def create_df_dict(self):
+        #TODO: transformar loop em dict comprehension
         self.df_dict = {}
         for i in DayChecker.types:
-            self.df_dict[i] = self.create_df(flight_log, i)            
+            self.df_dict[i] = self.create_df(i)            
         return self.df_dict 
     
-    def delete_csv(self, log_path):
+    def delete_csv(self):
         def delete_all_csv(type):
-            csv_file = os.path.join(log_path.parent, f'{type}.csv')
+            csv_file = os.path.join(self.flight_log.parent, f'{type}.csv')
             os.remove(csv_file)
         
         with ThreadPoolExecutor() as executor:
             executor.map(delete_all_csv, DayChecker.types)  
     
-    def metadata_test(self, log_path):        
+    def metadata_test(self):        
         self.mdata_test = {}
         
         def get_random_image_metadata(self):
-            files = [f for f in os.listdir(log_path.parent) if f.endswith('.JPG')]
+            files = [f for f in os.listdir(self.flight_log.parent) if f.endswith('.JPG')]
             random_file = random.choice(files)
-            with open(os.path.join(log_path.parent, random_file), 'rb') as f:
+            with open(os.path.join(self.flight_log.parent, random_file), 'rb') as f:
                 exif_data = exifread.process_file(f)
             return exif_data
         
         try:
-            self.mdata = get_random_image_metadata(log_path.parent)        
+            self.mdata = get_random_image_metadata(self.flight_log.parent)        
             
             if 100 <= self.mdata['EXIF ISOSpeedRatings'].values[0] <= 1600:
                 self.mdata_test['ISO'] = ['OK']
@@ -86,16 +94,16 @@ class DayChecker:
         except:
             pass    
     
-    def create_linestring(self, log_path, kml, container_index):
-        ls = kml.containers[container_index].newlinestring(name=log_path.name)
+    def create_linestring(self, kml, container_index):
+        ls = kml.containers[container_index].newlinestring(name=self.flight_log.name)
         coords_list = [
             (row.Lng, row.Lat) for index, row in self.df_dict['CAM'].iterrows()
             ]
         ls.coords = coords_list
         return ls
     
-    def create_polygon(self, log_path, kml, container_index):
-        poly = kml.containers[container_index].newpolygon(name=log_path.name)
+    def create_polygon(self, kml, container_index):
+        poly = kml.containers[container_index].newpolygon(name=self.flight_log.name)
         coords_list = [
             (row.Lng, row.Lat) for index, row in self.df_dict['CAM'].iterrows()
             ]
@@ -218,3 +226,15 @@ class DayChecker:
                                         </tbody>
                                     </table>
                                 </html>"""
+    def run(self):
+        self.create_csv()
+        self.create_df_dict()         
+        self.delete_csv()
+        self.metadata_test()
+        
+        self.flight_timestamp = str(self.df_dict['EV'].index[0].timestamp())
+        #TODO: fix a bug where sometimes the version is imported instead of serial number
+        self.drone_uid = self.df_dict['MSG'].Message[2][9:].replace(" ", "")
+        self.report = HealthTests(self.df_dict['RCOU'], self.df_dict['VIBE'], self.df_dict['POWR'])
+        self.report.run()
+            
