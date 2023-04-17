@@ -58,16 +58,6 @@ class PipeLine:
     #TODO: move this method to daychecker.py
     def run(self, flight_log):
         self.dc = DayChecker(flight_log)
-        # self.dc.create_csv(flight_log)
-        # self.dc.create_df_dict(flight_log)         
-        # self.dc.delete_csv(flight_log)
-        # self.dc.metadata_test(flight_log)
-
-        # self.flight_timestamp = str(self.dc.df_dict['EV'].index[0].timestamp())
-        # #TODO: fix a bug where sometimes the version is imported instead of serial number
-        # self.drone_uid = self.dc.df_dict['MSG'].Message[2][9:].replace(" ", "")
-        # self.dc.report = HealthTests(self.dc.df_dict['RCOU'], self.dc.df_dict['VIBE'], self.dc.df_dict['POWR'])
-        # self.dc.report.run()
         
         #Storing data into db
         self.write_to_db()

@@ -11,7 +11,6 @@ from tests.healthtests import HealthTests
 from concurrent.futures import ThreadPoolExecutor
 
 #class containing functions for the data extraction/modeling and kml customization
-#TODO: turn it into an object, with the flight log being taken in the __init__ constructor
 class DayChecker:
     types = ["CAM", "EV", "BAT", "MSG", "POWR", "RCOU", "TERR", "VIBE"]
     
@@ -37,10 +36,7 @@ class DayChecker:
         return df
     
     def create_df_dict(self):
-        #TODO: transformar loop em dict comprehension
-        self.df_dict = {}
-        for i in DayChecker.types:
-            self.df_dict[i] = self.create_df(i)            
+        self.df_dict = {i: self.create_df(i) for i in DayChecker.types}            
         return self.df_dict 
     
     def delete_csv(self):
@@ -53,33 +49,34 @@ class DayChecker:
     
     def metadata_test(self):        
         self.mdata_test = {}
+        img_path = self.flight_log.parent 
         
         def get_random_image_metadata(self):
-            files = [f for f in os.listdir(self.flight_log.parent) if f.endswith('.JPG')]
+            files = [f for f in os.listdir(img_path) if f.endswith('.JPG')]
             random_file = random.choice(files)
-            with open(os.path.join(self.flight_log.parent, random_file), 'rb') as f:
+            with open(os.path.join(img_path, random_file), 'rb') as f:
                 exif_data = exifread.process_file(f)
             return exif_data
         
         try:
-            self.mdata = get_random_image_metadata(self.flight_log.parent)        
+            mdata = get_random_image_metadata(img_path)        
             
-            if 100 <= self.mdata['EXIF ISOSpeedRatings'].values[0] <= 1600:
+            if 100 <= mdata['EXIF ISOSpeedRatings'].values[0] <= 1600:
                 self.mdata_test['ISO'] = ['OK']
             else:
                 self.mdata_test['ISO'] = ['FAIL', 'Check camera ISO.']
             
-            if str(self.mdata['EXIF ExposureTime']) == '1/1600':
+            if str(mdata['EXIF ExposureTime']) == '1/1600':
                 self.mdata_test['Shutter'] = ['OK']
             else:
                 self.mdata_test['Shutter'] = ['FAIL','Check camera shutter speed.']
                 
-            if re.match(r'a[0-9]r[0-9]_[a-z]{3}', self.mdata['Thumbnail Copyright'].values):
+            if re.match(r'a[0-9]r[0-9]_[a-z]{3}', mdata['Thumbnail Copyright'].values):
                 self.mdata_test['Copyright'] = ['OK']
             else:
                 self.mdata_test['Copyright'] = ['FAIL', 'Check camera copyright.']
         
-            if re.match(r'^\d{7}$', self.mdata['Image Artist'].values):
+            if re.match(r'^\d{7}$', mdata['Image Artist'].values):
                 self.mdata_test['Artist'] = ['OK']
             else:
                 self.mdata_test['Artist'] = ['FAIL', 'Check camera artist.']    
@@ -91,8 +88,9 @@ class DayChecker:
                 for test in keys:
                     if self.mdata_test[test][0] != 'OK':
                         self.mdata_test['Result'] = self.mdata_test[test]         
-        except:
-            pass    
+        except Exception as e:
+            print(f'Error ocurred in the metadata test: {str(e)}')
+            #pass    
     
     def create_linestring(self, kml, container_index):
         ls = kml.containers[container_index].newlinestring(name=self.flight_log.name)
