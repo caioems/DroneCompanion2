@@ -16,7 +16,6 @@ from database.repository.report_repo import RpRepo
 from database.repository.motors_repo import MtRepo
 from internal.loglist import LogList
 from internal.daychecker import DayChecker
-from tests.healthtests import HealthTests
 from tqdm import tqdm
 
 
@@ -24,12 +23,10 @@ class PipeLine:
     def __init__(self):
         self._root = LogList()
         self._log_list = self._root.log_list
-        self._kml = self.create_kml('flights')      
+        self._kml = self.create_kml()      
         
-    def create_kml(self, kml_name):
+    def create_kml(self, kml_name='flights'):
         self._kml = simplekml.Kml(name=kml_name)
-        self._kml.newfolder(name='RGB')
-        self._kml.newfolder(name='AGR')
         return self._kml
     
     def write_to_db(self):
@@ -55,7 +52,7 @@ class PipeLine:
             self.dc.report.motors_pwm_list[2], 
             self.dc.report.motors_pwm_list[3]
             )
-    #TODO: move this method to daychecker.py
+        
     def run(self, flight_log):
         self.dc = DayChecker(flight_log)
         
@@ -63,15 +60,9 @@ class PipeLine:
         self.write_to_db()
           
         #Creating the kml features
-        flight_alt = self.dc.df_dict['TERR']['CHeight'].median()
-        if flight_alt < 105:
-            rgb = self.dc.create_linestring(flights._kml, 0)
-            self.dc.rgb_style(rgb)
-            self.dc.create_balloon_report(rgb)
-        elif flight_alt > 105:
-            agr = self.dc.create_linestring(flights._kml, 1)
-            self.dc.agr_style(agr)
-            self.dc.create_balloon_report(agr)
+        flight_ls = self.dc.create_linestring(self._kml)
+        self.dc.agr_style(flight_ls)
+        self.dc.create_balloon_report(flight_ls)
 
 ##running when not being imported
 if __name__ == "__main__":
