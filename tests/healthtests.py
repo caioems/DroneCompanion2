@@ -3,10 +3,13 @@ from statistics import mean
 
 #TODO: motor efficiency = Thrust (grams) x Power (watts)
 class HealthTests:
-    def __init__(self, rcou_df, vibe_df, powr_df):
+    def __init__(self, rcou_df, vibe_df, powr_df, cam_df, trig_df):
         self._rcou_df = rcou_df
         self._vibe_df = vibe_df
         self._powr_df = powr_df 
+        self._cam_df = cam_df
+        self._trig_df = trig_df
+        
         self.motors_status = 'UNKNOWN'
         self.motors_feedback = ''
         self.imu_status = 'UNKNOWN'
@@ -18,14 +21,16 @@ class HealthTests:
         self.vcc_std = None
         
     def __repr__(self):
-        return (f"""
-                motors_status = {self.motors_status}
-                motors_feedback = {self.motors_feedback}
-                imu_status = {self.imu_status}
-                imu_feedback = {self.imu_feedback}
-                gps_status = {self.gps_status}
-                gps_feedback = {self.gps_feedback}"""
-                )
+        return (
+        f"""motors_status = {self.motors_status} 
+motors_feedback = {self.motors_feedback}
+imu_status = {self.imu_status}
+imu_feedback = {self.imu_feedback}
+gps_status = {self.gps_status}
+gps_feedback = {self.gps_feedback}
+trig_status = {self.trig_status}
+trig_feedback = {self.trig_feedback}"""
+)
         
         
     def motor_test(self):
@@ -120,10 +125,22 @@ class HealthTests:
                 self.vcc_status = 'FAIL'
                 self.vcc_feedback = f'Big voltage deviation ({self.vcc_std}v), please check the board.'
                 
-            
+    def trig_test(self):
+        triggers = self._trig_df.shape[0]
+        feedbacks = self._cam_df.shape[0]
+        if triggers == feedbacks:
+            self.trig_status = 'OK'
+            self.trig_feedback = f'No photos skipped ({triggers}).'
+        elif triggers > feedbacks:
+            self.trig_status = 'FAIL'
+            self.trig_feedback = f'{triggers - feedbacks} photos were taken without feedback.'
+        elif triggers < feedbacks:
+            self.trig_status = 'FAIL'
+            self.trig_feedback = f'The camera skipped {feedbacks - triggers} photos.'         
     
     def run(self):
         self.motor_test()
         self.vibe_test()
         self.vcc_test()
+        self.trig_test()
         return self    

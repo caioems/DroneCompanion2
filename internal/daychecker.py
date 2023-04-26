@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 #class containing functions for the data extraction/modeling and kml customization
 class DayChecker:
-    types = ["CAM", "EV", "BAT", "MSG", "POWR", "RCOU", "TERR", "VIBE"]
+    types = ["CAM", "EV", "BAT", "MSG", "POWR", "RCOU", "VIBE", "TRIG"]
     
     def __init__(self, flight_log):
         self.flight_log = flight_log
@@ -51,7 +51,7 @@ class DayChecker:
         self.mdata_test = {}
         img_path = self.flight_log.parent 
         
-        def get_random_image_metadata(self):
+        def get_random_image_metadata():
             files = [f for f in os.listdir(img_path) if f.endswith('.JPG')]
             random_file = random.choice(files)
             with open(os.path.join(img_path, random_file), 'rb') as f:
@@ -59,7 +59,7 @@ class DayChecker:
             return exif_data
         
         try:
-            mdata = get_random_image_metadata(img_path)        
+            mdata = get_random_image_metadata()        
             
             if 100 <= mdata['EXIF ISOSpeedRatings'].values[0] <= 1600:
                 self.mdata_test['ISO'] = ['OK']
@@ -92,8 +92,8 @@ class DayChecker:
             print(f'Error ocurred in the metadata test: {str(e)}')
             #pass    
     
-    def create_linestring(self, kml, container_index):
-        ls = kml.containers[container_index].newlinestring(name=self.flight_log.name)
+    def create_linestring(self, kml, container_index=0):
+        ls = kml.newlinestring(name=self.flight_log.name)
         coords_list = [
             (row.Lng, row.Lat) for index, row in self.df_dict['CAM'].iterrows()
             ]
@@ -134,6 +134,24 @@ class DayChecker:
         except:
             agr_style.linestyle.color = simplekml.Color.red
             feature.style = agr_style
+            
+    def run(self):
+        self.create_csv()
+        self.create_df_dict()         
+        self.delete_csv()
+        self.metadata_test()
+        
+        self.flight_timestamp = str(self.df_dict['EV'].index[0].timestamp())
+        #TODO: fix a bug where sometimes the version is imported instead of serial number
+        self.drone_uid = self.df_dict['MSG'].Message[2][9:].replace(" ", "")
+        self.report = HealthTests(
+            self.df_dict['RCOU'], 
+            self.df_dict['VIBE'], 
+            self.df_dict['POWR'], 
+            self.df_dict['CAM'],
+            self.df_dict['TRIG']
+            )
+        self.report.run()
     
     def create_balloon_report(self, feature):
         flight_data = self.df_dict['EV'].index[0]
@@ -224,15 +242,5 @@ class DayChecker:
                                         </tbody>
                                     </table>
                                 </html>"""
-    def run(self):
-        self.create_csv()
-        self.create_df_dict()         
-        self.delete_csv()
-        self.metadata_test()
-        
-        self.flight_timestamp = str(self.df_dict['EV'].index[0].timestamp())
-        #TODO: fix a bug where sometimes the version is imported instead of serial number
-        self.drone_uid = self.df_dict['MSG'].Message[2][9:].replace(" ", "")
-        self.report = HealthTests(self.df_dict['RCOU'], self.df_dict['VIBE'], self.df_dict['POWR'])
-        self.report.run()
+    
             

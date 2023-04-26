@@ -67,11 +67,11 @@ class PipeLine:
 ##running when not being imported
 if __name__ == "__main__":
     flights = PipeLine()
-    kml = f'{flights._root.root_folder}/flights.kml'
+    kml_file = f'{flights._root.root_folder}/flights.kml'
        
     ## map method
     results = list(tqdm(map(flights.run, flights._log_list), total=len(flights._log_list)))
     
-    flights._kml.save(kml)
+    flights._kml.save(kml_file)
     print('Done.')
-    os.startfile(kml)
+    os.startfile(kml_file)
