@@ -41,6 +41,7 @@ trig_status = {self.trig_status}
 trig_feedback = {self.trig_feedback}"""
 
     def motor_test(self):
+        # sourcery skip: extract-duplicate-method, hoist-statement-from-if, merge-duplicate-blocks, move-assign-in-block, remove-redundant-if, split-or-ifs
         """
          This is a test to see if it's possible to predict 
          motors maintenance. It compares each servo channel 
