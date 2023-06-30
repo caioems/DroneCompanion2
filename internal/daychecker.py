@@ -247,7 +247,7 @@ class DayChecker:
             self.df_dict["TRIG"],
         )
         self.report.run()
-
+    #TODO: error dealing when BAT sheet is filled with NaN
     def create_balloon_report(self, feature):
         """
          Create a report for the linestrings and save it to the KML file. It is used to show a balloon with useful information in google earth.
